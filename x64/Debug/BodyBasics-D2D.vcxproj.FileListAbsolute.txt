@@ -1,0 +1,2 @@
+C:\Users\Kelvin\Desktop\BodyBasics-D2D\x64\Debug\BodyBasics-D2D.exe
+C:\Users\Kelvin\Desktop\Kinect v2 code\x64\Debug\BodyBasics-D2D.exe

@@ -1,0 +1,14 @@
+Kinect Handtracking api resource: https://pterneas.com/2014/03/21/kinect-for-windows-version-2-hand-tracking/
+
+Camera coordinates(when looking at it from the front):
++x : right
+-x : left
++y : down
+-y : up
+
+Hand states:
+	Open
+	Closed
+	Lasso
+	Unknown
+	NotTracked
