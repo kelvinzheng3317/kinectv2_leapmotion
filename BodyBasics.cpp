@@ -8,9 +8,11 @@
 #include <strsafe.h>
 #include "resource.h"
 #include "BodyBasics.h"
+
 #include <iostream>
 #include <string>
 #include <sstream>
+#include <windows.h>
 
 using namespace std;
 
@@ -27,6 +29,50 @@ void AttachConsole()
     freopen_s(&fp, "CONOUT$", "w", stdout);
     freopen_s(&fp, "CONOUT$", "w", stderr);
 }
+
+
+void writeToSerialPort(const char* portName, const char* data) {
+    // Open the serial port
+    HANDLE hSerial = CreateFileA(portName, GENERIC_WRITE, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+    if (hSerial == INVALID_HANDLE_VALUE) {
+        std::cerr << "Error opening serial port" << std::endl;
+        return;
+    }
+
+    // Configure the serial port
+    DCB dcbSerialParams = { 0 };
+    dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
+
+    if (!GetCommState(hSerial, &dcbSerialParams)) {
+        std::cerr << "Error getting serial port state" << std::endl;
+        CloseHandle(hSerial);
+        return;
+    }
+
+    dcbSerialParams.BaudRate = CBR_9600;  // Set baud rate
+    dcbSerialParams.ByteSize = 8;         // Set data bits
+    dcbSerialParams.StopBits = ONESTOPBIT;// Set stop bits
+    dcbSerialParams.Parity = NOPARITY;  // Set parity
+
+    if (!SetCommState(hSerial, &dcbSerialParams)) {
+        std::cerr << "Error setting serial port state" << std::endl;
+        CloseHandle(hSerial);
+        return;
+    }
+
+    // Write data to the serial port
+    DWORD bytesWritten;
+    if (!WriteFile(hSerial, data, strlen(data), &bytesWritten, NULL)) {
+        std::cerr << "Error writing to serial port" << std::endl;
+    }
+    else {
+        std::cout << "Data written to serial port: " << data << std::endl;
+    }
+
+    // Close the serial port
+    CloseHandle(hSerial);
+}
+
 
 /// <summary>
 /// Entry point for the application
@@ -48,7 +94,10 @@ int APIENTRY wWinMain(
 
     AttachConsole();
     cout << "STARTING PROGRAM" << endl;
-    // OutputDebugStringW(L"My output string.\n");
+    
+    const char* portName = "COM3";
+    const char* data = "@STEP 240, 400, 0, 0, 0, 0, 0\r";
+    writeToSerialPort(portName, data);
 
     CBodyBasics application;
     application.Run(hInstance, nShowCmd);

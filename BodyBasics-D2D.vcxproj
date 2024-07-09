@@ -20,6 +20,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BodyBasics.cpp" />
+    <ClCompile Include="IK.cpp" />
+    <ClCompile Include="TeachMover.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="app.ico" />
@@ -29,8 +31,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BodyBasics.h" />
+    <ClInclude Include="IK.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="stdafx.h" />
+    <ClInclude Include="TeachMover.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="notes.txt" />
