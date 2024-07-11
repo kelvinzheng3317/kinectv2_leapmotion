@@ -5,6 +5,11 @@
 using namespace std;
 
 class TeachMover {
+
+    DCB dcbSerialParams;
+    HANDLE hSerial;
+
+public:
     int m1 = 1768;
     int m2 = 1100;
     int m3 = 1040;
@@ -12,10 +17,6 @@ class TeachMover {
     int m5 = 0;
     int m6 = 900;
 
-    DCB dcbSerialParams;
-    HANDLE hSerial;
-
-public:
     TeachMover(string portID);
     ~TeachMover();
 

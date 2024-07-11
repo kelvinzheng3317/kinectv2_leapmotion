@@ -3,7 +3,10 @@
 #include <cmath>
 #include <math.h>
 #include <windows.h>
+#include <thread>
+#include <chrono>
 #include "IK.h"
+#include "TeachMover.h"
 // from my_teachMover import TeachMover
 
 using namespace std;
@@ -20,7 +23,7 @@ IK::IK(float x = 7, float y = 0, float z = 14.625) {
 
 // Uses the robot's current coordinates to determine what the new stepper values after given change
 // FIXME: add the ability to control gripper angle based off palm vector
-int IK::FindStep(float newX, float newY, float newZ, float directionChange = 0) {
+vector<int> IK::FindStep(float newX, float newY, float newZ, float directionChange = 0) {
     x = newX;
     y = newY;
     z = newZ;
@@ -41,11 +44,13 @@ int IK::FindStep(float newX, float newY, float newZ, float directionChange = 0) 
         int step2 = int((PI/2 - theta2) * S_C) + 1100;
         int step3 = int((PI/2 - theta3) * E_C);
         cout << "IK results - step1: " << step1 << ", step2: " << step2 << ", step3 : " << step3 << endl;
-        return step1, step2, step3, 420, 0; // returning 0's for step4 and step5 so number of return values matches Zilin's IK implementation, makes switch btw implementations easier
+        vector<int> stepResults{ step1, step2, step3, 420, 0 };
+        return stepResults; // returning 0's for step4 and step5 so number of return values matches Zilin's IK implementation, makes switch btw implementations easier
     }
     catch (...) {
         cout << "Math Domain Error" << endl;
-        return -1, -1, -1, -1, -1;
+        vector<int> error{};
+        return error;
     }
 
 
@@ -61,21 +66,20 @@ void IK::incrCoords(float x, float y, float z) {
     this->y += y;
     this->z += z;
 }
-};
 
 int main(int argc, char* argv[]) {
-    IK IK();
+    IK myIK(7, 0, 14.625);
 
     // NOTE : Testing IK and TeachMover in combination
-    TeachMover robot('COM3');
+    TeachMover robot("COM3");
     // the current steps for each motor must be initalized, this is my guesses for what the default position motors are
     // robot.set_motor_vals(1768, 1100, 1040, 0, 0, 0)
     robot.print_motors();
 
-    int j1, j2, j3, j4, j5 = IK.FindStep(8, 0, 20);
+    vector<int> j_vals = myIK.FindStep(8, 0, 20);
     //# print(f"target motor steps: {j1} {j2} {j3} {j4} {j5}") # Default steps is 3536, 3536, 2079
-    robot.set_step(240, j1, j2, j3, j4, j5, 750);
-    sleep(3);
+    robot.set_step(240, j_vals[0], j_vals[1], j_vals[2], j_vals[3], j_vals[4], 750);
+    this_thread::sleep_for(3s);
     robot.lock_wait();
     robot.returnToStart();
 

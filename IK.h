@@ -30,10 +30,10 @@ class IK {
 
     public:
         // initialize robot current coordinates
-        IK(float x = 7, float y = 0, float z = 14.625);
+        IK(float x, float y, float z);
 
         // Uses the robot's current coordinates to determine what the new stepper values after given change
-        int FindStep(float newX, float newY, float newZ, float directionChange = 0);
+        vector<int> FindStep(float newX, float newY, float newZ, float directionChange);
 
         float getCoords();
 

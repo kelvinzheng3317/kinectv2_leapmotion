@@ -1,27 +1,12 @@
 #include <iostream>
 #include <string>
 #include <sstream>
-#include <format>
 #include <chrono>
 #include <thread>
 #include <windows.h>
 #include "TeachMover.h"
-// import serial
-// import sys
-// import time
-// import threading
 
 using namespace std;
-
-//# sys.path.append(r'C:\Users\Kelvin\Desktop\figures')
-//# try:
-// #     import _leapc_cffi
-// #     print("Module imported successfully.")
-// # except ImportError as e:
-// #     print(f"Failed to import module: {e}")
-
-// # from IK_Zilin import InverseKinematics
-// # from IK import my_InverseKinematics
 
 string formatCmd(int spd, int j1, int j2, int j3, int j4, int j5, int j6) {
     stringstream oss;
@@ -155,7 +140,7 @@ bool TeachMover::move(int spd, int j1, int j2, int j3, int j4, int j5, int j6) {
 
 bool TeachMover::set_step(int spd, int j1, int j2, int j3, int j4, int j5, int j6) {
     // prevent overextending the robot
-    if (j1 > 7072 or j1 < 0 or j2>7072 or j2 < 0 or j3>4158 or j3 < 0 or j4>1536 or j4 < 0 or j5>1536 or j5 < 0) {
+    if (j1 > 7072 || j1 < 0 || j2>7072 || j2 < 0 || j3>4158 || j3 < 0 || j4>1536 || j4 < 0 || j5>1536 || j5 < 0) {
         cout << "Given motor step values are out of range" << endl;
         return false;
     }
@@ -307,51 +292,51 @@ void TeachMover::close_conn() {
 // }       
 
 
-int main(int argc, char* argv[]) {
-    TeachMover robot("COM3");
-    cout << "----- done initializing ---------" << endl;
-    // cout << robot.hSerial << endl;
-    // robot.move(240, 400, 400, 0, 0, 0, 0);
-    robot.set_step(240, 1768, 3100, 1440, 420, 0, 900);
-    robot.returnToStart();
-
-    //     # # INVERSE KINEMATICS TESTING
-    //     # IK = InverseKinematics()
-    //     # j1, j2, j3, j4, j5 = IK.FindStep(7, 0, 0, 0, 0)
-    //     # print(f"results: {j1}, {j2}, {j3}, {j4}, {j5}")
-    //     # robot.set_step(240, j1, j2, j3, j4, j5, robot.m6)
-
-    //     # @READ TESTS
-    //     # response = robot.read_pos()
-    //     # print(response)
-    //     # response2 = robot.readPosition()
-    //     # print(response2)
-
-    //     # NOTE: Default position is (1768, 1100, 1040, 420, 0, 900)
-    //     # robot.move(240, 0,1200,800,0,0,0)
-    //     robot.set_step(240, 1768, 3100, 1440, 420, 0, 900)
-    //     # robot.lock_wait()
-    //     robot.returnToStart()
-
-    //     # NOTE: BASIC THREAD TESTING
-    //     # robot.test_thread(1)
-    //     # for i in range(10):
-    //     #     print(f"Iteration {i}")
-    //     #     robot.test_thread(i)
-    //     #     time.sleep(0.1)
-    //     # time.sleep(5)
-    //     # print(robot.counter)
-
-    //     # NOTE: ROBOT MOVE THREAD TESTING
-    //     # i = 0
-    //     # while True:
-    //     #     print(f"iteration {i}")
-    //     #     robot.move(200,100,10,0,0,0,0)
-    //     #     time.sleep(0.1)
-    //     #     i += 1
-
-    //     # NOTE: @READ TESTING
-    //     # pos = robot.readPosition()
-    //     # print(type(pos))
-    //     # print(pos)
-}
+//int main(int argc, char* argv[]) {
+//    TeachMover robot("COM3");
+//    cout << "----- done initializing ---------" << endl;
+//    // cout << robot.hSerial << endl;
+//    // robot.move(240, 400, 400, 0, 0, 0, 0);
+//    robot.set_step(240, 1768, 3100, 1440, 420, 0, 900);
+//    robot.returnToStart();
+//
+//    //     # # INVERSE KINEMATICS TESTING
+//    //     # IK = InverseKinematics()
+//    //     # j1, j2, j3, j4, j5 = IK.FindStep(7, 0, 0, 0, 0)
+//    //     # print(f"results: {j1}, {j2}, {j3}, {j4}, {j5}")
+//    //     # robot.set_step(240, j1, j2, j3, j4, j5, robot.m6)
+//
+//    //     # @READ TESTS
+//    //     # response = robot.read_pos()
+//    //     # print(response)
+//    //     # response2 = robot.readPosition()
+//    //     # print(response2)
+//
+//    //     # NOTE: Default position is (1768, 1100, 1040, 420, 0, 900)
+//    //     # robot.move(240, 0,1200,800,0,0,0)
+//    //     robot.set_step(240, 1768, 3100, 1440, 420, 0, 900)
+//    //     # robot.lock_wait()
+//    //     robot.returnToStart()
+//
+//    //     # NOTE: BASIC THREAD TESTING
+//    //     # robot.test_thread(1)
+//    //     # for i in range(10):
+//    //     #     print(f"Iteration {i}")
+//    //     #     robot.test_thread(i)
+//    //     #     time.sleep(0.1)
+//    //     # time.sleep(5)
+//    //     # print(robot.counter)
+//
+//    //     # NOTE: ROBOT MOVE THREAD TESTING
+//    //     # i = 0
+//    //     # while True:
+//    //     #     print(f"iteration {i}")
+//    //     #     robot.move(200,100,10,0,0,0,0)
+//    //     #     time.sleep(0.1)
+//    //     #     i += 1
+//
+//    //     # NOTE: @READ TESTING
+//    //     # pos = robot.readPosition()
+//    //     # print(type(pos))
+//    //     # print(pos)
+//}

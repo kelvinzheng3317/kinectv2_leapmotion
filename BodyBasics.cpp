@@ -10,9 +10,17 @@
 #include "BodyBasics.h"
 
 #include <iostream>
+#include <vector>
 #include <string>
 #include <sstream>
+#include <chrono>
+#include <thread>
+#include <atomic>
 #include <windows.h>
+
+#include "IK.h"
+#include "TeachMover.h"
+#include "buffer.h"
 
 using namespace std;
 
@@ -20,6 +28,10 @@ static const float c_JointThickness = 3.0f;
 static const float c_TrackedBoneThickness = 6.0f;
 static const float c_InferredBoneThickness = 1.0f;
 static const float c_HandSize = 30.0f;
+
+static atomic<bool> stop_thread(false);
+static atomic<bool> run_main_loop(true);
+static Buffer* buffer;
 
 // console window so cout statements are visible
 void AttachConsole()
@@ -73,6 +85,66 @@ void writeToSerialPort(const char* portName, const char* data) {
     CloseHandle(hSerial);
 }
 
+vector<float> stringToVec(string str) {
+    vector<float> coords;
+    stringstream ss(str);
+    string int_str;
+    try {
+        for (int i = 0; i < 3; ++i) {
+            getline(ss, int_str, ' ');
+            coords.push_back(stof(int_str));
+        }
+    }
+    catch (...) {
+        cout << "Error: data couldn't be converted to coordinates" << endl;
+        coords = {};
+    }
+    return coords;
+}
+
+void SendQuitMessage() {
+    PostQuitMessage(0); // Posts WM_QUIT message to quit the message loop
+}
+
+
+void threadFunc(Buffer* buffer) {
+    TeachMover robot("COM3");
+    robot.move(240, 200, 0, 0, 0, 0, 0);
+    robot.move(240, -200, 0, 0, 0, 0, 0);
+    IK ik(7, 0, 14.625);
+    while (!stop_thread) {
+        if (!buffer->isEmpty()) {
+            string str_coords = buffer->get();
+            vector<float> coords = stringToVec(str_coords);
+            if (coords.size() == 3) {
+                stringstream oss;
+                // x,y,z set to reflect the inverse kinematic's coordinate system not the kinect v2 coordinate system
+                float x = (coords[2] * 12) - 9;
+                float y = (coords[0] * 60) - 7;
+                float z = coords[1] * 30 + 0.5;
+                oss << "BUFFER coords: " << x << ", " << y << ", " << z << endl;
+                // oss << str_coords << '\n';
+                OutputDebugStringA(oss.str().c_str());
+                vector<int> steps = ik.FindStep(x, y, z, 0);
+                if (steps.size() > 0) {
+                    // print(f"----- Moving Robot to ({line[0]}, {line[1]}, {line[2]})-----");
+                    // print(f"target motor steps: {j1} {j2} {j3} {j4} {j5}")
+                     robot.set_step(240, steps[0], steps[1], steps[2], steps[3], steps[4], robot.m6);
+                    // print("------------------------");
+                }
+                else {
+                    OutputDebugStringA("Coordinates are out of range: Math domain error");
+                }
+            }
+        }
+        else {
+            cout << "thread empty" << endl;
+        }
+        this_thread::sleep_for(0.5s);
+    }
+    OutputDebugStringA("Terminating thread\n");
+}
+
 
 /// <summary>
 /// Entry point for the application
@@ -95,12 +167,13 @@ int APIENTRY wWinMain(
     AttachConsole();
     cout << "STARTING PROGRAM" << endl;
     
-    const char* portName = "COM3";
-    const char* data = "@STEP 240, 400, 0, 0, 0, 0, 0\r";
-    writeToSerialPort(portName, data);
+    //const char* portName = "COM3";
+    //const char* data = "@STEP 240, 400, 0, 0, 0, 0, 0\r";
+    //writeToSerialPort(portName, data);
 
     CBodyBasics application;
     application.Run(hInstance, nShowCmd);
+    OutputDebugStringA("Exiting out of wWinMain\n");
 }
 
 /// <summary>
@@ -133,7 +206,7 @@ CBodyBasics::CBodyBasics() :
     }
     cout << "INITIALIZED CBODY" << endl;
 }
-  
+
 
 /// <summary>
 /// Destructor
@@ -169,7 +242,10 @@ int CBodyBasics::Run(HINSTANCE hInstance, int nCmdShow)
 {
     MSG       msg = {0};
     WNDCLASS  wc;
-    cout << "CURRENTLY IN CBODYBASICS::RUN";
+    cout << "CURRENTLY IN CBODYBASICS::RUN" << endl;
+    
+    buffer = new Buffer();
+    thread thread1(threadFunc, buffer);
 
     // Dialog custom window class -> sets up window properties
     ZeroMemory(&wc, sizeof(wc));
@@ -197,7 +273,7 @@ int CBodyBasics::Run(HINSTANCE hInstance, int nCmdShow)
     ShowWindow(hWndApp, nCmdShow);
 
     // Main message loop
-    while (WM_QUIT != msg.message)
+    while (run_main_loop && WM_QUIT != msg.message)
     {
         Update();
 
@@ -208,14 +284,42 @@ int CBodyBasics::Run(HINSTANCE hInstance, int nCmdShow)
             {
                 continue;
             }
-
             TranslateMessage(&msg);
             DispatchMessageW(&msg);
         }
     }
 
+    cout << "left main message loop" << endl;
+    //stop_thread = true;
+    thread1.join();
+    delete buffer;
+
+    // FreeConsole();
+    OutputDebugStringA("Exiting out of CBodyBasics::Run\n");
+
     return static_cast<int>(msg.wParam);
 }
+
+
+// NOT FROM STARTER CODE, INFLUENCES HOW WINDOW EVENTS ARE HANDLED
+//LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+//    cout << "in WindowProc" << endl;
+//    switch (uMsg) {
+//    case WM_CLOSE:
+//        // Perform any cleanup if necessary
+//        // If you want to prevent the window from closing, comment out the following line
+//        DestroyWindow(hwnd);
+//        OutputDebugStringA("In switch case WM_CLOSE");
+//        return 0;
+//    case WM_DESTROY:
+//        PostQuitMessage(0); // Post quit message to exit the message loop
+//        OutputDebugStringA("In switch case WM_DESTROY");
+//        return 0;
+//    default:
+//        return DefWindowProc(hwnd, uMsg, wParam, lParam);
+//    }
+//}
+
 
 /// <summary>
 /// Main processing function
@@ -319,11 +423,16 @@ LRESULT CALLBACK CBodyBasics::DlgProc(HWND hWnd, UINT message, WPARAM wParam, LP
         // If the titlebar X is clicked, destroy app
         case WM_CLOSE:
             DestroyWindow(hWnd);
+            run_main_loop = false;
+            OutputDebugStringA("In Dlgproc switch case WM_CLOSE\n");
             break;
 
         case WM_DESTROY:
             // Quit the main message pump
             PostQuitMessage(0);
+            OutputDebugStringA("In Dlgproc switch case WM_DESTROY\n");
+            FreeConsole();
+            stop_thread = true;
             break;
     }
 
@@ -434,9 +543,17 @@ void CBodyBasics::ProcessBody(INT64 nTime, int nBodyCount, IBody** ppBodies)
 
                             //JointType::JointType_HandLeft leftHand = jointPoints[JointType_HandRight];
                             std::ostringstream oss;
-                            oss << "Left hand: (" << jointPoints[JointType_HandLeft].x << ", " << jointPoints[JointType_HandLeft].y << ")\n";
-                            oss << "Right hand: (" << jointPoints[JointType_HandRight].x << ", " << jointPoints[JointType_HandRight].y << ")\n";
-                            OutputDebugStringA(oss.str().c_str());
+                            Joint rightHand = joints[JointType_HandRight];
+                            CameraSpacePoint rh_pos = rightHand.Position;
+                            vector<float> coords{ rh_pos.X, rh_pos.Y, rh_pos.Z };
+
+                            // oss << "Left hand: (" << jointPoints[JointType_HandLeft].x << ", " << jointPoints[JointType_HandLeft].y << ")\n";
+                            // oss << "Right hand: (" << coords[0] << ", " << coords[1] << ", " << coords[2] << ")\n";
+                                //oss << "Right hand: (" << jointPoints[JointType_HandRight].x << ", " << jointPoints[JointType_HandRight].y << ")\n";
+                            string str_coords = to_string(coords[0]) + " " + to_string(coords[1]) + " " + to_string(coords[2]);
+                            buffer->add(str_coords);
+                            // OutputDebugStringA(oss.str().c_str());
+                            // cout << oss.str();
 
                             //cout << "Left hand state: " << leftHandState << endl;
                             //cout << "Right hand state: " << rightHandState << endl;
