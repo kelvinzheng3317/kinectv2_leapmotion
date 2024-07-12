@@ -16,6 +16,7 @@
 #include <chrono>
 #include <thread>
 #include <atomic>
+#include <cmath>
 #include <windows.h>
 
 #include "IK.h"
@@ -23,6 +24,7 @@
 #include "buffer.h"
 
 using namespace std;
+using namespace this_thread;
 
 static const float c_JointThickness = 3.0f;
 static const float c_TrackedBoneThickness = 6.0f;
@@ -41,7 +43,6 @@ void AttachConsole()
     freopen_s(&fp, "CONOUT$", "w", stdout);
     freopen_s(&fp, "CONOUT$", "w", stderr);
 }
-
 
 void writeToSerialPort(const char* portName, const char* data) {
     // Open the serial port
@@ -102,6 +103,10 @@ vector<float> stringToVec(string str) {
     return coords;
 }
 
+float getJointDistance(CameraSpacePoint j1, CameraSpacePoint j2) {
+    return sqrt(pow(j1.X - j2.X, 2) + pow(j1.Y - j2.Y, 2) + pow(j1.Z - j2.Z, 2));
+}
+
 void SendQuitMessage() {
     PostQuitMessage(0); // Posts WM_QUIT message to quit the message loop
 }
@@ -114,33 +119,45 @@ void threadFunc(Buffer* buffer) {
     IK ik(7, 0, 14.625);
     while (!stop_thread) {
         if (!buffer->isEmpty()) {
-            string str_coords = buffer->get();
-            vector<float> coords = stringToVec(str_coords);
-            if (coords.size() == 3) {
-                stringstream oss;
-                // x,y,z set to reflect the inverse kinematic's coordinate system not the kinect v2 coordinate system
-                float x = (coords[2] * 12) - 9;
-                float y = (coords[0] * 60) - 7;
-                float z = coords[1] * 30 + 0.5;
-                oss << "BUFFER coords: " << x << ", " << y << ", " << z << endl;
-                // oss << str_coords << '\n';
-                OutputDebugStringA(oss.str().c_str());
-                vector<int> steps = ik.FindStep(x, y, z, 0);
-                if (steps.size() > 0) {
-                    // print(f"----- Moving Robot to ({line[0]}, {line[1]}, {line[2]})-----");
-                    // print(f"target motor steps: {j1} {j2} {j3} {j4} {j5}")
-                     robot.set_step(240, steps[0], steps[1], steps[2], steps[3], steps[4], robot.m6);
-                    // print("------------------------");
+            string msg = buffer->get();
+            if (msg == "CLOSE") {
+                OutputDebugStringA("Closing grip\n");
+                robot.close_grip();
+            }
+            else if (msg == "OPEN") {
+                OutputDebugStringA("Opening grip\n");
+                robot.open_grip();
+            }
+            else {
+                vector<float> coords = stringToVec(msg);
+                if (coords.size() == 3) {
+                    stringstream oss;
+                    // x,y,z set to reflect the inverse kinematic's coordinate system not the kinect v2 coordinate system
+                    float x = coords[0] * 12 - 9;
+                    float y = coords[1] * 60 - 7;
+                    float z = coords[2] * 30 + 0.5;
+                    oss << "BUFFER coords: " << x << ", " << y << ", " << z << endl;
+                    OutputDebugStringA(oss.str().c_str());
+                    vector<int> steps = ik.FindStep(x, y, z, 0);
+                    if (steps.size() > 0) {
+                        // print(f"----- Moving Robot to ({line[0]}, {line[1]}, {line[2]})-----");
+                        // print(f"target motor steps: {j1} {j2} {j3} {j4} {j5}")
+                         robot.set_step(240, steps[0], steps[1], steps[2], steps[3], steps[4], robot.m6);
+                        // print("------------------------");
+                    }
+                    else {
+                        OutputDebugStringA("Coordinates are out of range: Math domain error\n");
+                    }
                 }
                 else {
-                    OutputDebugStringA("Coordinates are out of range: Math domain error");
+                    OutputDebugStringA("Error: invalid message\n");
                 }
             }
         }
         else {
             cout << "thread empty" << endl;
         }
-        this_thread::sleep_for(0.5s);
+        sleep_for(0.5s);
     }
     OutputDebugStringA("Terminating thread\n");
 }
@@ -540,24 +557,37 @@ void CBodyBasics::ProcessBody(INT64 nTime, int nBodyCount, IBody** ppBodies)
 
                             DrawHand(leftHandState, jointPoints[JointType_HandLeft]);
                             DrawHand(rightHandState, jointPoints[JointType_HandRight]);
-
-                            //JointType::JointType_HandLeft leftHand = jointPoints[JointType_HandRight];
-                            std::ostringstream oss;
+                            
+                            // std::ostringstream oss;
                             Joint rightHand = joints[JointType_HandRight];
                             CameraSpacePoint rh_pos = rightHand.Position;
-                            vector<float> coords{ rh_pos.X, rh_pos.Y, rh_pos.Z };
+                            //vector<float> coords{ rh_pos.X, rh_pos.Y, rh_pos.Z };
+
+                            CameraSpacePoint leftHand = joints[JointType_HandLeft].Position;
+                            CameraSpacePoint head = joints[JointType_Head].Position;
+                            CameraSpacePoint rShoulder = joints[JointType_ShoulderRight].Position;
+
+                            // OutputDebugStringA(("lh and head distance: " + to_string(getJointDistance(leftHand, head)) + "\n).c_str());
+                            // OutputDebugStringA(("lh and rShoulder distance: " + to_string(getJointDistance(leftHand, rShoulder)) + "\n").c_str());
+                            if (getJointDistance(leftHand, head) < 0.1) {
+                                OutputDebugStringA("Head case -> Close gripper msg\n");
+                                buffer->add("CLOSE");
+                            }
+                            else if (getJointDistance(leftHand, rShoulder) < 0.1) {
+                                OutputDebugStringA("Right shoulder case -> Open gripper msg\n");
+                                buffer->add("OPEN");
+                            }
+                            else {
+                                // Order of coordinates are swapped around to match TeachMover's coord system
+                                string str_coords = to_string(rh_pos.Z) + " " + to_string(rh_pos.X) + " " + to_string(rh_pos.Y);
+                                buffer->add(str_coords);
+                            }
 
                             // oss << "Left hand: (" << jointPoints[JointType_HandLeft].x << ", " << jointPoints[JointType_HandLeft].y << ")\n";
                             // oss << "Right hand: (" << coords[0] << ", " << coords[1] << ", " << coords[2] << ")\n";
-                                //oss << "Right hand: (" << jointPoints[JointType_HandRight].x << ", " << jointPoints[JointType_HandRight].y << ")\n";
-                            string str_coords = to_string(coords[0]) + " " + to_string(coords[1]) + " " + to_string(coords[2]);
-                            buffer->add(str_coords);
                             // OutputDebugStringA(oss.str().c_str());
                             // cout << oss.str();
-
-                            //cout << "Left hand state: " << leftHandState << endl;
-                            //cout << "Right hand state: " << rightHandState << endl;
-                            //cout << "Joints: " << joints << endl;
+                            // cout << "Left hand state: " << leftHandState << endl;
                         }
                     }
                 }
